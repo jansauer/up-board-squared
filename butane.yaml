@@ -1,0 +1,59 @@
+variant: flatcar
+version: 1.1.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAKc633LvM5r4IwNMAR6c5RzFkXz7REu5SsBFtTJ5NeK
+storage:
+  filesystems:
+    - device: /dev/disk/by-id/ata-TS128GMSA230S_F758601413
+      format: ext4
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: UpSquared
+    - path: /etc/flatcar/update.conf
+      overwrite: true
+      mode: 0420
+      contents:
+        inline: |
+          GROUP=stable
+          REBOOT_STRATEGY=off
+    - path: /etc/ssh/sshd_config.d/custom.conf
+      overwrite: true
+      mode: 0600
+      contents:
+        inline: |
+          PermitRootLogin no
+          AllowUsers core
+  links:
+    - path: /etc/systemd/system/multi-user.target.wants/docker.service
+      target: /usr/lib/systemd/system/docker.service
+      hard: false
+      overwrite: true
+systemd:
+  units:
+    - name: var-lib-docker.mount
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Mount SSD to /var/lib/docker
+        Before=local-fs.target
+        
+        [Mount]
+        What=/dev/disk/by-id/ata-TS128GMSA230S_F758601413
+        Where=/var/lib/docker
+        Type=ext4
+        
+        [Install]
+        WantedBy=local-fs.target
+    - name: docker.service
+      enabled: true
+      dropins:
+        - name: 10-wait-docker.conf
+          contents: |
+            [Unit]
+            After=var-lib-docker.mount
+            Requires=var-lib-docker.mount
